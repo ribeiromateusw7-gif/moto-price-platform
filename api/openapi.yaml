@@ -1,0 +1,462 @@
+
+openapi: 3.1.0
+
+info:
+  title: Moto Price Platform API
+  version: 1.0.0
+  description: API inicial da plataforma de busca e comparação de produtos para motocicletas.
+
+servers:
+  - url: http://localhost:4000/api/v1
+    description: Ambiente local de desenvolvimento
+
+tags:
+  - name: Health
+  - name: Products
+  - name: Search
+  - name: Offers
+  - name: Stores
+  - name: Motorcycles
+  - name: Integrations
+
+paths:
+
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Verificar disponibilidade da API
+      responses:
+        "200":
+          description: API disponível
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+
+  /products:
+    get:
+      tags:
+        - Products
+      summary: Listar e pesquisar produtos
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: brandId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Produtos encontrados
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Product"
+
+  /products/{productId}:
+    get:
+      tags:
+        - Products
+      summary: Consultar produto
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: Produto encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Product"
+        "404":
+          description: Produto não encontrado
+
+  /products/{productId}/offers:
+    get:
+      tags:
+        - Offers
+      summary: Listar ofertas de um produto
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: Ofertas encontradas
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Offer"
+
+  /search:
+    get:
+      tags:
+        - Search
+      summary: Pesquisar produtos por texto
+      parameters:
+        - name: q
+          in: query
+          required: true
+          schema:
+            type: string
+            minLength: 2
+        - name: motorcycleId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+      responses:
+        "200":
+          description: Resultados da pesquisa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/SearchResult"
+
+  /search/image:
+    post:
+      tags:
+        - Search
+      summary: Iniciar pesquisa por fotografia
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - image
+              properties:
+                image:
+                  type: string
+                  format: binary
+                motorcycleId:
+                  type: string
+                  format: uuid
+      responses:
+        "202":
+          description: Processamento iniciado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  jobId:
+                    type: string
+                    format: uuid
+        "400":
+          description: Imagem inválida
+        "401":
+          description: Não autenticado
+
+  /search/image/{jobId}:
+    get:
+      tags:
+        - Search
+      summary: Consultar processamento da pesquisa visual
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: jobId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Estado do processamento
+        "404":
+          description: Processamento não encontrado
+
+  /compare/{productId}:
+    get:
+      tags:
+        - Offers
+      summary: Comparar ofertas de um produto
+      parameters:
+        - $ref: "#/components/parameters/ProductId"
+      responses:
+        "200":
+          description: Comparação realizada
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Offer"
+
+  /stores:
+    post:
+      tags:
+        - Stores
+      summary: Solicitar cadastro de loja
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateStore"
+      responses:
+        "201":
+          description: Solicitação criada
+        "400":
+          description: Dados inválidos
+        "401":
+          description: Não autenticado
+
+  /stores/{storeId}:
+    get:
+      tags:
+        - Stores
+      summary: Consultar loja
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Loja encontrada
+        "404":
+          description: Loja não encontrada
+
+  /motorcycles:
+    get:
+      tags:
+        - Motorcycles
+      summary: Listar motocicletas
+      parameters:
+        - name: manufacturer
+          in: query
+          schema:
+            type: string
+        - name: model
+          in: query
+          schema:
+            type: string
+        - name: year
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Motocicletas encontradas
+
+  /stores/{storeId}/integrations:
+    get:
+      tags:
+        - Integrations
+      summary: Listar integrações da loja
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: storeId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Integrações encontradas
+        "401":
+          description: Não autenticado
+        "403":
+          description: Sem permissão
+
+components:
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        canonicalName:
+          type: string
+        description:
+          type:
+            - string
+            - "null"
+        brandId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        categoryId:
+          type:
+            - string
+            - "null"
+          format: uuid
+        attributes:
+          type: object
+          additionalProperties: true
+
+    Offer:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        productId:
+          type: string
+          format: uuid
+        storeId:
+          type: string
+          format: uuid
+        price:
+          type: number
+          minimum: 0
+        currency:
+          type: string
+          example: BRL
+        availability:
+          type: string
+          enum:
+            - in_stock
+            - out_of_stock
+            - on_order
+            - unknown
+        quantity:
+          type:
+            - integer
+            - "null"
+        observedAt:
+          type: string
+          format: date-time
+
+    SearchResult:
+      type: object
+      properties:
+        product:
+          $ref: "#/components/schemas/Product"
+        offers:
+          type: array
+          items:
+            $ref: "#/components/schemas/Offer"
+        matchType:
+          type: string
+          enum:
+            - exact
+            - probable
+            - visual_candidate
+        compatibilityStatus:
+          type: string
+          enum:
+            - verified
+            - unverified
+            - rejected
+
+    CreateStore:
+      type: object
+      required:
+        - legalName
+        - displayName
+        - city
+        - state
+      properties:
+        legalName:
+          type: string
+        displayName:
+          type: string
+        cnpj:
+          type: string
+        phone:
+          type: string
+        email:
+          type: string
+          format: email
+        city:
+          type: string
+        state:
+          type: string
+          minLength: 2
+          maxLength: 2
